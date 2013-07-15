@@ -22,6 +22,12 @@ from math import sin, cos, acos, asin, pi
 from mathutils import Vector
 from subprocess import PIPE, Popen
 
+try:
+    import numpy as numpy
+    np = 1
+except:
+    np = 0
+    
 class LiVi_bc(object):
     '''Base settings class for LiVi'''
     def __init__(self, filepath, scene):
@@ -44,11 +50,8 @@ class LiVi_bc(object):
         self.filebase = self.newdir+self.fold+self.filename
         self.scene = scene
         self.scene['newdir'] = self.newdir
-        try:
-            import numpy as numpy
-            self.np = 1
-        except:
-            self.np = 0
+        self.np = np
+
             
 class LiVi_e(LiVi_bc):
     '''Export settings class for LiVi'''
@@ -221,7 +224,6 @@ class LiVi_e(LiVi_bc):
             num = (("-ab", 2, 3, 4), ("-ad", 256, 1024, 4096), ("-ar", 128, 512, 1024), ("-as", 128, 512, 1024), ("-aa", 0.3, 0.15, 0.08), ("-dj", 0, 0.7, 1), ("-ds", 0, 0.5, 0.15), ("-dr", 1, 3, 5), ("-ss", 0, 2, 5), ("-st", 1, 0.75, 0.1), ("-lw", 0.05, 0.01, 0.002))
             return(" {0[0]} {1[0]} {0[1]} {1[1]} {0[2]} {1[2]} {0[3]} {1[3]} {0[4]} {1[4]} {0[5]} {1[5]} {0[6]} {1[6]} {0[7]} {1[7]} {0[8]} {1[8]} {0[9]} {1[9]} {0[10]} {1[10]} ".format([n[0] for n in num], [n[int(acc)+1] for n in num]))
         
-    
     def radskyhdrexport(self):
         for frame in range(0, self.frameend + 1):
             simtime = self.starttime + frame*datetime.timedelta(seconds = 3600*self.scene.livi_export_interval)
@@ -229,7 +231,7 @@ class LiVi_e(LiVi_bc):
             subprocess.call("gensky {} {} {}:{:0>2d}{} -a {} -o {} {} > {}".format(simtime.month, simtime.day, simtime.hour, simtime.minute, self.TZ, self.scene.livi_export_latitude, self.scene.livi_export_longitude, self.skytypeparams, self.sky(frame)), shell = True)
             self.skyexport(open(self.sky(frame), "a"))           
             subprocess.call("oconv {} > {}-{}sky.oct".format(self.sky(frame), self.filebase, frame), shell=True)
-            subprocess.call("cnt 250 500 | rcalc -f {}/io_livi_dev/lib/latlong.cal -e 'XD=500;YD=250;inXD=0.002;inYD=0.004' | rtrace -af pan.af -n {} -x 500 -y 250 -fac {}-{}sky.oct > {}/{}p.hdr".format(self.scene.livipath, self.nproc, self.filebase, frame, self.newdir, frame), shell=True)
+            subprocess.call("cnt 250 500 | rcalc -f {}/io_livi/lib/latlong.cal -e 'XD=500;YD=250;inXD=0.002;inYD=0.004' | rtrace -af pan.af -n {} -x 500 -y 250 -fac {}-{}sky.oct > {}/{}p.hdr".format(self.scene.livipath, self.nproc, self.filebase, frame, self.newdir, frame), shell=True)
             subprocess.call("rpict -vta -vp 0 0 0 -vd 1 0 0 -vu 0 0 1 -vh 360 -vv 360 -x 1000 -y 1000 {}-{}sky.oct > {}/{}.hdr".format(self.filebase, frame, self.newdir, frame), shell=True)
                 
     def sunexport(self):
@@ -403,18 +405,19 @@ class LiVi_e(LiVi_bc):
             mtx = open(self.newdir+"/"+epwbase[0]+".mtx", "r") 
             for fvals in mtx.readlines():
                 linevals = fvals.split(" ")
-                if fvals != "\n" and math.isnan(float(linevals[0])) == False:
-                    sumvals = round(float(linevals[0]) +  float(linevals[1]) + float(linevals[2]), 2)
+                try:
+                    sumvals = round(float(linevals[0]) +  float(linevals[1]) + float(linevals[2]), 2) 
                     if sumvals > 0:
                         vals[patch] += sumvals
                         self.vecvals[hour] = sumvals
                     hour += 1
-                elif fvals != "\n" and math.isnan(float(linevals[0])) == True:
-                    hour += 1 
-                else:
-                    patch += 1
-                    hour = 0
-
+                except:
+                    if fvals != "\n":
+                        hour += 1 
+                    else:
+                        patch += 1
+                        hour = 0
+            
             mtx.close()       
             skyrad = open(self.filename+".whitesky", "w")    
             skyrad.write("void glow sky_glow \n0 \n0 \n4 1 1 1 0 \nsky_glow source sky \n0 \n0 \n4 0 0 1 180 \nvoid glow ground_glow \n0 \n0 \n4 1 1 1 0 \nground_glow source ground \n0 \n0 \n4 0 0 -1 180\n\n")
@@ -601,6 +604,7 @@ class LiVi_e(LiVi_bc):
                         
                         for face in mesh.polygons:
                             if "calcsurf" in str(mesh.materials[face.material_index].name):
+                                csf.append(face.index)
                                 geo.livi_calc = 1
                                 vsum = Vector((0, 0, 0))
                                 self.scene.objects.active = geo
@@ -608,15 +612,14 @@ class LiVi_e(LiVi_bc):
                                 bpy.ops.object.mode_set(mode = 'OBJECT')                        
                                 for vc in geo.data.vertex_colors:
                                     bpy.ops.mesh.vertex_color_remove()
-
+                                
                                 if self.scene['cp'] == 0:                            
                                     for v in face.vertices:
                                         vsum = mesh.vertices[v].co + vsum
                                     fc = vsum/len(face.vertices)
                                     rtrace.write('{0[0]} {0[1]} {0[2]} {1[0]} {1[1]} {1[2]} \n'.format(fc, face.normal[:]))
                                     calcsurffaces.append((o, face))
-                                    csf.append(face.index)
-                                
+                                    
                                 for vert in face.vertices:
                                     if (mesh.vertices[vert]) not in calcsurfverts:
                                         vcentx, vcenty, vcentz = mesh.vertices[vert].co[:]
@@ -629,6 +632,7 @@ class LiVi_e(LiVi_bc):
                                 
                                 if self.scene['cp'] == 1:        
                                     geo['cverts'] = cverts
+                                    geo['cfaces'] = csf
                                     self.reslen = len(calcsurfverts)
 
                                 elif self.scene['cp'] == 0:
