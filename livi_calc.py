@@ -19,7 +19,12 @@
 import bpy, os, subprocess, colorsys, multiprocessing, sys, math, datetime
 from math import pi
 from subprocess import PIPE, Popen, STDOUT
-
+try:
+    import numpy as numpy
+    np = 1
+except:
+    np = 0
+    
 class LiVi_c(object):  
     def __init__(self, lexport, prev_op):
         self.acc = lexport.scene.livi_calc_acc
@@ -131,7 +136,7 @@ class LiVi_c(object):
         res = [[0] * lexport.reslen for frame in range(0, bpy.context.scene.frame_end+1)]
         wd = (7, 5)[int(lexport.scene.livi_calc_da_weekdays)]
         fwd = datetime.datetime(2010, 1, 1).weekday()
-        vecvals = [[x%24, (fwd+x)%7] for x in range(0,8760)]
+        vecvals = [[x%24, (fwd+x)%7] for x in range(0,8760)] if np == 0 else numpy.array()
         if os.path.splitext(os.path.basename(lexport.scene.livi_export_epw_name))[1] in (".hdr", ".HDR"):
             skyrad = open(lexport.filebase+".whitesky", "w")    
             skyrad.write("void glow sky_glow \n0 \n0 \n4 1 1 1 0 \nsky_glow source sky \n0 \n0 \n4 0 0 1 180 \nvoid glow ground_glow \n0 \n0 \n4 1 1 1 0 \nground_glow source ground \n0 \n0 \n4 0 0 -1 180\n\n")
@@ -144,6 +149,7 @@ class LiVi_c(object):
                 try:
                     vecvals[hour].append(round(float(fvals.split(" ")[0]) +  float(fvals.split(" ")[1]) + float(fvals.split(" ")[2]), 2))
                     hour += 1
+                    
                 except:
                     if fvals != "\n" and math.isnan(float(fvals.split(" ")[0])) == True:
                         vecvals[hour].append(0)
@@ -151,8 +157,8 @@ class LiVi_c(object):
                     else:
                         hour = 0
         else:
-            vecvals = lexport.vecvals  
-
+            vecvals = lexport.vecvals 
+        
         for frame in range(0, bpy.context.scene.frame_end+1):
             hours = 0
             sensarray = [[] for x in range(0, 146)]
@@ -166,10 +172,11 @@ class LiVi_c(object):
                 for sens in sensfile.readlines():
                     sensarray[i].append(sens.strip("\n").split("\t"))
                 sensfile.close()
+            
             for l, readings in enumerate(vecvals):
                 finalillu = []
                 for i in range(0, 146):
-                    if float(readings[0]) >= lexport.scene.livi_calc_dastart_hour and float(readings[0]) < lexport.scene.livi_calc_daend_hour and float(readings[1]) < wd:
+                    if lexport.scene.livi_calc_dastart_hour <= float(readings[0]) < lexport.scene.livi_calc_daend_hour and float(readings[1]) < wd:
                         for j, sens in enumerate(sensarray[i]):
                             senreading = 179*(0.265*float(sens[0])+0.67*float(sens[1])+0.065*float(sens[2]))
                             if i == 0:

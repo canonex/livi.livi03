@@ -151,7 +151,7 @@ class LiVi_d(livi_export.LiVi_e):
                                 
 def respoint_visualiser(self, context, ld):
     if context.mode != "OBJECT" or context.scene.livi_display_respoints == False or (context.active_object not in (ld.obreslist+ld.obcalclist) and context.scene.livi_display_sel_only == True) \
-    or ld.rp_display != True or context.scene.frame_current not in range(context.scene.frame_start, context.scene.frame_end + 1):
+    or ld.rp_display != True or context.scene.frame_current not in range(context.scene.frame_start, context.scene.frame_end + 1) and context.scene.livi_display_panel == 0:
         return
 
     region = context.region

@@ -50,8 +50,6 @@ class LiVi_bc(object):
         self.filebase = self.newdir+self.fold+self.filename
         self.scene = scene
         self.scene['newdir'] = self.newdir
-        self.np = np
-
             
 class LiVi_e(LiVi_bc):
     '''Export settings class for LiVi'''
@@ -397,7 +395,7 @@ class LiVi_e(LiVi_bc):
             patch = 0
             hour = 0
             fwd = datetime.datetime(int(epwyear), 1, 1).weekday()
-            if self.np == 0:
+            if np == 0:
                 self.vecvals = [[x%24, (fwd+x)%7] + [0 for p in range(146)] for x in range(0,8760)]
                 vals = [0 for x in range(146)]
             else:
