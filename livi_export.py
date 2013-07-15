@@ -22,21 +22,15 @@ from math import sin, cos, acos, asin, pi
 from mathutils import Vector
 from subprocess import PIPE, Popen
 
-try:
-    import numpy as numpy
-    np = 1
-except:
-    np = 0
-nproc = multiprocessing.cpu_count()
-
 class LiVi_bc(object):
+    '''Base settings class for LiVi'''
     def __init__(self, filepath, scene):
         if str(sys.platform) != 'win32':
             self.nproc = str(multiprocessing.cpu_count())
             self.rm = "rm "
             self.cat = "cat "
             self.fold = "/"
-        elif str(sys.platform) == 'win32':
+        else:
             self.nproc = "1"
             self.rm = "del "
             self.cat = "type "
@@ -50,8 +44,14 @@ class LiVi_bc(object):
         self.filebase = self.newdir+self.fold+self.filename
         self.scene = scene
         self.scene['newdir'] = self.newdir
-        
+        try:
+            import numpy as numpy
+            self.np = 1
+        except:
+            self.np = 0
+            
 class LiVi_e(LiVi_bc):
+    '''Export settings class for LiVi'''
     def __init__(self, filepath, scene, sd, tz, export_op):
         LiVi_bc.__init__(self, filepath, scene)
         self.simtimes = []
@@ -64,6 +64,8 @@ class LiVi_e(LiVi_bc):
         self.time_type = int(scene.livi_export_time_type)
         self.merr = 0
         self.rtrace = self.filebase+".rtrace"
+        self.metric = ""
+        
         for a in bpy.app.handlers.frame_change_pre:
             bpy.app.handlers.frame_change_pre.remove(a)
   
@@ -80,12 +82,12 @@ class LiVi_e(LiVi_bc):
             self.sky_type = int(scene.livi_export_sky_type_period)
             self.starttime = datetime.datetime(2010, int(scene.livi_export_start_month), int(scene.livi_export_start_day), int(scene.livi_export_start_hour), 0)
             self.endtime = datetime.datetime(2010, int(scene.livi_export_end_month), int(scene.livi_export_end_day), int(scene.livi_export_end_hour), 0)
-            self.hours = (self.endtime-self.starttime).seconds/3600
+            self.hours = (self.endtime-self.starttime).days*24 + (self.endtime-self.starttime).seconds/3600
             scene.frame_start = 0
             scene.frame_end = int(self.hours/scene.livi_export_interval)
             self.fe = int(self.hours/scene.livi_export_interval)
             self.frameend = int(self.hours/scene.livi_export_interval)
-        
+            
         elif scene.livi_anim in ("2", "3", "4"):
             self.fe = scene.frame_end
             self.frameend = 0
@@ -101,7 +103,10 @@ class LiVi_e(LiVi_bc):
         elif self.sky_type == 4:
             self.skyhdrexport(self.scene.livi_export_hdr_name)
         
-        elif self.sky_type == 5:
+        elif self.sky_type == 5 and self.scene.livi_export_time_type == "0":
+            subprocess.call("cp {} {}".format(self.scene.livi_export_rad_name, self.sky(0)), shell = True)
+        
+        elif self.sky_type == 6:
             for frame in range(0, self.fe + 1):
                 rad_sky = open(self.sky(frame), "w")
                 rad_sky.close()
@@ -113,15 +118,13 @@ class LiVi_e(LiVi_bc):
         for frame in range(0, self.fe + 1):
             if scene.livi_anim == "4":
                 self.radlights(frame)
-            else:
-                if frame == 0:
-                    self.radlights(frame)
+            elif frame == 0:
+                self.radlights(frame)
             
             if scene.livi_anim == "3":
                 self.radmat(frame, export_op)
-            else:
-                if frame == 0:
-                    self.radmat(frame, export_op)
+            elif frame == 0:
+                self.radmat(frame, export_op)
         
         self.rtexport(export_op)
         
@@ -130,11 +133,10 @@ class LiVi_e(LiVi_bc):
                 self.merr = 0
                 if scene.livi_anim == "2":
                     self.obexport(frame, [geo for geo in self.scene.objects if geo.type == 'MESH' and 'lightarray' not in geo.name and geo.hide == False and geo.layers[0] == True], 0, export_op) 
-                if scene.livi_anim == "3":
+                elif scene.livi_anim == "3":
                     self.obmexport(frame, [geo for geo in self.scene.objects if geo.type == 'MESH' and 'lightarray' not in geo.name and geo.hide == False and geo.layers[0] == True], 0, export_op) 
-                else:
-                    if frame == 0:
-                        self.obexport(frame, [geo for geo in self.scene.objects if geo.type == 'MESH' and 'lightarray' not in geo.name and geo.hide == False and geo.layers[0] == True], 0, export_op)
+                elif frame == 0:
+                    self.obexport(frame, [geo for geo in self.scene.objects if geo.type == 'MESH' and 'lightarray' not in geo.name and geo.hide == False and geo.layers[0] == True], 0, export_op)
             
                 self.fexport(frame, export_op)
         
@@ -146,15 +148,15 @@ class LiVi_e(LiVi_bc):
      
     def obj(self, name, fr):
         if self.scene.livi_anim == "2":
-            return(self.filebase+"-{}-{}.obj".format(name, fr))
+            return(self.filebase+"-{}-{}.obj".format(name.replace(" ", "_"), fr))
         else:
-            return(self.filebase+"-{}-0.obj".format(name))
+            return(self.filebase+"-{}-0.obj".format(name.replace(" ", "_")))
     
     def mesh(self, name, fr):
         if self.scene.livi_anim in ("2", "3"):
-            return(self.filebase+"-{}-{}.mesh".format(name, fr))
+            return(self.filebase+"-{}-{}.mesh".format(name.replace(" ", "_"), fr))
         else:
-            return(self.filebase+"-{}-0.mesh".format(name))
+            return(self.filebase+"-{}-0.mesh".format(name.replace(" ", "_")))
     
     def mat(self, fr):
         if self.scene.livi_anim == "3":
@@ -185,12 +187,8 @@ class LiVi_e(LiVi_bc):
     
     def clearscened(self):    
         for ob in [ob for ob in self.scene.objects if ob.type == 'MESH']:
-            try:
-                if ob['res'] == 1:
-                   self.scene.objects.unlink(ob)
-            except Exception as e:
-                if str(e) != '\'bpy_struct[key]: key "res" not found\'':
-                    print(e, '\'bpy_struct[key]: key "res" not found\'')
+            if ob.livi_res == 1:
+                self.scene.objects.unlink(ob)
        
         for mesh in bpy.data.meshes:
             if mesh.users == 0:
@@ -213,44 +211,32 @@ class LiVi_e(LiVi_bc):
         if acc == "3":
             return(self.scene.livi_calc_custom_acc)
         else:
-            if acc == "0":
-                num = ("2", "256", "128", "128", "0.3", "1", "1", "1", "0", "1", "0.05")
-            elif acc == "1":
-                num = ("2", "1024", "512", "512", "0.15", "1", "1", "2", "1", "1", "0.01")
-            elif acc == "2":
-                num = ("3", "4096", "1024", "1024", "0.08", "1", "1", "3", "5", "1", "0.0003")
-            return(" -ab %s -ad %s -ar %s -as %s -av 0 0 0 -aa %s -dj %s -ds %s -dr %s -ss %s -st %s -lw %s " %(num))
+            num = (("-ab", 2, 3, 4), ("-ad", 256, 1024, 4096), ("-ar", 128, 512, 1024), ("-as", 128, 512, 1024), ("-aa", 0.3, 0.15, 0.08), ("-dj", 0, 0.7, 1), ("-ds", 0, 0.5, 0.15), ("-dr", 1, 3, 5), ("-ss", 0, 2, 5), ("-st", 1, 0.75, 0.1), ("-lw", 0.05, 0.01, 0.002))
+            return(" {0[0]} {1[0]} {0[1]} {1[1]} {0[2]} {1[2]} {0[3]} {1[3]} {0[4]} {1[4]} {0[5]} {1[5]} {0[6]} {1[6]} {0[7]} {1[7]} {0[8]} {1[8]} {0[9]} {1[9]} {0[10]} {1[10]} ".format([n[0] for n in num], [n[int(acc)+1] for n in num]))
         
     def pparams(self, acc):
         if acc == "3":
             return(self.scene.livi_calc_custom_acc)
         else:
-            if acc == "0":
-                num = ("2", "256", "32", "32", "0.3", "0", "0.5", "1", "0", "0.85", "0.05")
-            elif acc == "1":
-                num = ("3", "1024", "64", "256", "0.15", "0.7", "0.15", "2", "1", "0.5", "0.01")
-            elif acc == "2":
-                num = ("4", "4096", "0", "1024", "0.05", "1", "0.02", "3", "5", "0.15", "0.0003")
-            return(" -ab %s -ad %s -ar %s -as %s -av 0 0 0 -aa %s -dj %s -ds %s -dr %s -ss %s -st %s -lw %s " %(num))
+            num = (("-ab", 2, 3, 4), ("-ad", 256, 1024, 4096), ("-ar", 128, 512, 1024), ("-as", 128, 512, 1024), ("-aa", 0.3, 0.15, 0.08), ("-dj", 0, 0.7, 1), ("-ds", 0, 0.5, 0.15), ("-dr", 1, 3, 5), ("-ss", 0, 2, 5), ("-st", 1, 0.75, 0.1), ("-lw", 0.05, 0.01, 0.002))
+            return(" {0[0]} {1[0]} {0[1]} {1[1]} {0[2]} {1[2]} {0[3]} {1[3]} {0[4]} {1[4]} {0[5]} {1[5]} {0[6]} {1[6]} {0[7]} {1[7]} {0[8]} {1[8]} {0[9]} {1[9]} {0[10]} {1[10]} ".format([n[0] for n in num], [n[int(acc)+1] for n in num]))
+        
     
     def radskyhdrexport(self):
         for frame in range(0, self.frameend + 1):
             simtime = self.starttime + frame*datetime.timedelta(seconds = 3600*self.scene.livi_export_interval)
             self.simtimes.append(simtime)
-            subprocess.call("gensky "+str(self.simtimes[frame].month)+" "+str(self.simtimes[frame].day)+" "+str(self.simtimes[frame].hour)+":"+str(self.simtimes[frame].minute)+str(self.TZ)+" -a "+str(self.scene.livi_export_latitude)+" -o "+str(self.scene.livi_export_longitude)+" "+self.skytypeparams+" > "+self.sky(frame), shell=True)
+            subprocess.call("gensky {} {} {}:{:0>2d}{} -a {} -o {} {} > {}".format(simtime.month, simtime.day, simtime.hour, simtime.minute, self.TZ, self.scene.livi_export_latitude, self.scene.livi_export_longitude, self.skytypeparams, self.sky(frame)), shell = True)
             self.skyexport(open(self.sky(frame), "a"))           
-            subprocess.call("oconv "+self.sky(frame)+" > "+self.filebase+"-"+str(frame)+"sky.oct", shell=True)
-            subprocess.call("cnt 250 500 | rcalc -f %s/io_livi/lib/latlong.cal -e 'XD=500;YD=250;inXD=0.002;inYD=0.004' | rtrace -af pan.af -n %s -x 500 -y 250 -fac %s-%ssky.oct > %s/%sp.hdr" %(self.scene.livipath, nproc, self.filebase, frame, self.newdir, frame), shell=True)
+            subprocess.call("oconv {} > {}-{}sky.oct".format(self.sky(frame), self.filebase, frame), shell=True)
+            subprocess.call("cnt 250 500 | rcalc -f {}/io_livi_dev/lib/latlong.cal -e 'XD=500;YD=250;inXD=0.002;inYD=0.004' | rtrace -af pan.af -n {} -x 500 -y 250 -fac {}-{}sky.oct > {}/{}p.hdr".format(self.scene.livipath, self.nproc, self.filebase, frame, self.newdir, frame), shell=True)
             subprocess.call("rpict -vta -vp 0 0 0 -vd 1 0 0 -vu 0 0 1 -vh 360 -vv 360 -x 1000 -y 1000 {}-{}sky.oct > {}/{}.hdr".format(self.filebase, frame, self.newdir, frame), shell=True)
                 
     def sunexport(self):
         for frame in range(0, self.frameend + 1):
             simtime = self.starttime + frame*datetime.timedelta(seconds = 3600*self.scene.livi_export_interval)
             deg2rad = 2*math.pi/360
-            if self.scene.livi_export_summer_enable:
-                DS = 1 
-            else:
-                DS = 0
+            DS = 1 if self.scene.livi_export_summer_enable else 0
             ([solalt, solazi]) = solarPosition(simtime.timetuple()[7], simtime.hour - DS + (simtime.minute)*0.016666, self.scene.livi_export_latitude, self.scene.livi_export_longitude) 
             if self.sky_type < 2:
                 if frame == 0:
@@ -320,10 +306,8 @@ class LiVi_e(LiVi_bc):
             else:
                 bpy.data.worlds['World'].texture_slots[0].texture.image.source = 'SEQUENCE'
             
-            if self.scene.livi_export_time_type == "0":
-                self.scene.world.ambient_color = (0.04, 0.04, 0.04)
-            else:
-                self.scene.world.ambient_color = (0.000001, 0.000001, 0.000001)
+            self.scene.world.ambient_color = (0.04, 0.04, 0.04) if self.scene.livi_export_time_type == "0" else (0.000001, 0.000001, 0.000001)
+                
             bpy.data.worlds['World'].texture_slots[0].texture.factor_red = (0.05, 0.000001)[int(self.scene.livi_export_time_type)]
             bpy.data.worlds['World'].texture_slots[0].texture.factor_green = (0.05, 0.000001)[int(self.scene.livi_export_time_type)]
             bpy.data.worlds['World'].texture_slots[0].texture.factor_blue = (0.05, 0.000001)[int(self.scene.livi_export_time_type)]
@@ -382,10 +366,7 @@ class LiVi_e(LiVi_bc):
                 
     def skyexport(self, rad_sky):
         rad_sky.write("\nskyfunc glow skyglow\n0\n0\n")
-        if self.sky_type < 3:
-            rad_sky.write("4 .8 .8 1 0\n\n")
-        else:
-            rad_sky.write("4 1 1 1 0\n\n")    
+        rad_sky.write("4 .8 .8 1 0\n\n") if self.sky_type < 3 else rad_sky.write("4 1 1 1 0\n\n") 
         rad_sky.write("skyglow source sky\n0\n0\n4 0 0 1  180\n\n")
         rad_sky.write("skyfunc glow groundglow\n0\n0\n4 .8 1.1 .8  0\n\n")
         rad_sky.write("groundglow source ground\n0\n0\n4 0 0 -1  180\n\n")
@@ -394,55 +375,62 @@ class LiVi_e(LiVi_bc):
     def ddsskyexport(self):
         os.chdir(self.newdir)
         pcombfiles = "ps0.hdr ps1.hdr ps2.hdr ps3.hdr ps4.hdr ps5.hdr ps6.hdr ps7.hdr ps8.hdr ps9.hdr ps10.hdr ps11.hdr ps12.hdr ps13.hdr ps14.hdr ps15.hdr ps16.hdr ps17.hdr ps18.hdr ps19.hdr ps20.hdr ps21.hdr ps22.hdr ps23.hdr ps24.hdr ps25.hdr ps26.hdr ps27.hdr ps28.hdr ps29.hdr ps30.hdr ps31.hdr ps32.hdr ps33.hdr ps34.hdr ps35.hdr ps36.hdr ps37.hdr ps38.hdr ps39.hdr ps40.hdr ps41.hdr ps42.hdr ps43.hdr ps44.hdr ps45.hdr ps46.hdr ps47.hdr ps48.hdr ps49.hdr ps50.hdr ps51.hdr ps52.hdr ps53.hdr ps54.hdr ps55.hdr ps56.hdr ps57.hdr ps58.hdr ps59.hdr ps60.hdr ps61.hdr ps62.hdr ps63.hdr ps64.hdr ps65.hdr ps66.hdr ps67.hdr ps68.hdr ps69.hdr ps70.hdr ps71.hdr ps72.hdr ps73.hdr ps74.hdr ps75.hdr ps76.hdr ps77.hdr ps78.hdr ps79.hdr ps80.hdr ps81.hdr ps82.hdr ps83.hdr ps84.hdr ps85.hdr ps86.hdr ps87.hdr ps88.hdr ps89.hdr ps90.hdr ps91.hdr ps92.hdr ps93.hdr ps94.hdr ps95.hdr ps96.hdr ps97.hdr ps98.hdr ps99.hdr ps100.hdr ps101.hdr ps102.hdr ps103.hdr ps104.hdr ps105.hdr ps106.hdr ps107.hdr ps108.hdr ps109.hdr ps110.hdr ps111.hdr ps112.hdr ps113.hdr ps114.hdr ps115.hdr ps116.hdr ps117.hdr ps118.hdr ps119.hdr ps120.hdr ps121.hdr ps122.hdr ps123.hdr ps124.hdr ps125.hdr ps126.hdr ps127.hdr ps128.hdr ps129.hdr ps130.hdr ps131.hdr ps132.hdr ps133.hdr ps134.hdr ps135.hdr ps136.hdr ps137.hdr ps138.hdr ps139.hdr ps140.hdr ps141.hdr ps142.hdr ps143.hdr ps144.hdr ps145.hdr"
-        if os.path.splitext(os.path.basename(self.scene.livi_export_epw_name))[1] in (".epw", ".EPW"):
+        epwbase = os.path.splitext(os.path.basename(self.scene.livi_export_epw_name))
+        if epwbase[1] in (".epw", ".EPW"):
             epw = open(self.scene.livi_export_epw_name, "r")
             epwlines = epw.readlines()
+            epw.close()
             epwyear = epwlines[8].split(",")[0]
-            if not os.path.isfile(self.newdir+"/"+os.path.splitext(os.path.basename(self.scene.livi_export_epw_name))[0]+".wea"):
-                wea = open(self.newdir+"/"+os.path.splitext(os.path.basename(self.scene.livi_export_epw_name))[0]+".wea", "w")
+            if not os.path.isfile(self.newdir+"/"+epwbase[0]+".wea"):
+                wea = open(self.newdir+"/"+epwbase[0]+".wea", "w")
                 wea.write("place {0[1]}\nlatitude {0[6]}\nlongitude {0[7]}\ntime_zone {0[8]}\nsite_elevation {0[9]}weather_data_file_units 1\n".format(epwlines[0].split(",")))
                 for epwline in epwlines[8:]:
-                    wea.write("%s %s %s %s %s \n" % tuple(col for c, col in enumerate(epwline.split(",")) if c in (1, 2, 3, 14, 15)))
+                    wea.write("{0[1]} {0[2]} {0[3]} {0[14]} {0[15]} \n".format(epwline.split(",")))
                 wea.close()
-            if not os.path.isfile(self.newdir+"/"+os.path.splitext(os.path.basename(self.scene.livi_export_epw_name))[0]+".mtx"):
-                subprocess.call("gendaymtx -r -90 -m 1 {} > {}".format(self.newdir+"/"+os.path.splitext(os.path.basename(self.scene.livi_export_epw_name))[0]+".wea", self.newdir+"/"+os.path.splitext(os.path.basename(self.scene.livi_export_epw_name))[0]+".mtx"), shell=True) 
-            mtx = open(self.newdir+"/"+os.path.splitext(os.path.basename(self.scene.livi_export_epw_name))[0]+".mtx", "r") 
+            if not os.path.isfile(self.newdir+"/"+epwbase[0]+".mtx"):
+                subprocess.call("gendaymtx -r -90 -m 1 {0}.wea > {0}.mtx".format(self.newdir+"/"+epwbase[0]), shell=True) 
+
             patch = 0
-            vals = [0]
-            fwd = datetime.datetime(int(epwyear), 1, 1).weekday()
-            self.vecvals = [[x%24, (fwd+x)%7] for x in range(0,8760)]
-    
             hour = 0
+            fwd = datetime.datetime(int(epwyear), 1, 1).weekday()
+            if self.np == 0:
+                self.vecvals = [[x%24, (fwd+x)%7] + [0 for p in range(146)] for x in range(0,8760)]
+                vals = [0 for x in range(146)]
+            else:
+                self.vecvals = numpy.array([[x%24, (fwd+x)%7] + [0 for p in range(146)] for x in range(0,8760)])
+                vals = numpy.array([0 for x in range(146)])
+            
+            mtx = open(self.newdir+"/"+epwbase[0]+".mtx", "r") 
             for fvals in mtx.readlines():
-                if fvals != "\n" and math.isnan(float(fvals.split(" ")[0])) == False:
-                    vals[patch] = vals[patch] + round(float(fvals.split(" ")[0]) +  float(fvals.split(" ")[1]) + float(fvals.split(" ")[2]), 2)
-                    self.vecvals[hour].append(round(float(fvals.split(" ")[0]) +  float(fvals.split(" ")[1]) + float(fvals.split(" ")[2]), 2))
+                linevals = fvals.split(" ")
+                if fvals != "\n" and math.isnan(float(linevals[0])) == False:
+                    sumvals = round(float(linevals[0]) +  float(linevals[1]) + float(linevals[2]), 2)
+                    if sumvals > 0:
+                        vals[patch] += sumvals
+                        self.vecvals[hour] = sumvals
                     hour += 1
-                elif fvals != "\n" and math.isnan(float(fvals.split(" ")[0])) == True:
-                    self.vecvals[hour].append(0)
+                elif fvals != "\n" and math.isnan(float(linevals[0])) == True:
                     hour += 1 
                 else:
                     patch += 1
                     hour = 0
-                    vals.append(0)
-            
+
             mtx.close()       
             skyrad = open(self.filename+".whitesky", "w")    
             skyrad.write("void glow sky_glow \n0 \n0 \n4 1 1 1 0 \nsky_glow source sky \n0 \n0 \n4 0 0 1 180 \nvoid glow ground_glow \n0 \n0 \n4 1 1 1 0 \nground_glow source ground \n0 \n0 \n4 0 0 -1 180\n\n")
             skyrad.close()
-            subprocess.call("oconv "+self.filename+".whitesky > "+self.filename+"-whitesky.oct", shell=True)
-            subprocess.call("vwrays -ff -x 600 -y 600 -vta -vp 0 0 0 -vd 1 0 0 -vu 0 0 1 -vh 360 -vv 360 -vo 0 -va 0 -vs 0 -vl 0 | rcontrib -bn 146 -fo -ab 0 -ad 512 -n "+self.nproc+" -ffc -x 600 -y 600 -ld- -V+ -f tregenza.cal -b tbin -o p%d.hdr -m sky_glow "+self.filename+"-whitesky.oct", shell = True)
+            subprocess.call("oconv {0}.whitesky > {0}-whitesky.oct".format(self.filename), shell=True)
+            subprocess.call("vwrays -ff -x 600 -y 600 -vta -vp 0 0 0 -vd 1 0 0 -vu 0 0 1 -vh 360 -vv 360 -vo 0 -va 0 -vs 0 -vl 0 | rcontrib -bn 146 -fo -ab 0 -ad 512 -n {} -ffc -x 600 -y 600 -ld- -V+ -f tregenza.cal -b tbin -o p%d.hdr -m sky_glow {}-whitesky.oct".format(self.nproc, self.filename), shell = True)
             
             for j in range(0, 146):
-                subprocess.call("pcomb -s "+str(vals[j])+" p"+str(j)+".hdr > ps"+str(j)+".hdr", shell = True)
-                subprocess.call(self.rm+"  p"+str(j)+".hdr", shell = True) 
-            subprocess.call("pcomb -h  "+pcombfiles+" > "+self.newdir+"/"+os.path.splitext(os.path.basename(self.scene.livi_export_epw_name))[0]+".hdr", shell = True)    
+                subprocess.call("pcomb -s {0} p{1}.hdr > ps{1}.hdr".format(vals[j], j), shell = True)
+                subprocess.call("{0}  p{1}.hdr".format(self.rm, j), shell = True) 
+            subprocess.call("pcomb -h  "+pcombfiles+" > "+self.newdir+"/"+epwbase[0]+".hdr", shell = True)    
             subprocess.call(self.rm+" ps*.hdr" , shell = True)            
-            self.skyhdrexport(self.newdir+"/"+os.path.splitext(os.path.basename(self.scene.livi_export_epw_name))[0]+".hdr")
-        elif os.path.splitext(os.path.basename(self.scene.livi_export_epw_name))[-1] in (".hdr", ".HDR"):
+            self.skyhdrexport(self.newdir+"/"+epwbase[0]+".hdr")
+        elif epwbase[-1] in (".hdr", ".HDR"):
             self.skyhdrexport(self.scene.livi_export_epw_name)
         
-    
     def hdrsky(self, rad_sky, skyfile):
         rad_sky.write("# Sky material\nvoid colorpict hdr_env\n7 red green blue "+skyfile+" angmap.cal sb_u sb_v\n0\n0\n\nhdr_env glow env_glow\n0\n0\n4 1 1 1 0\n\nenv_glow bubble sky\n0\n0\n4 0 0 0 500\n\n")
         rad_sky.close()
@@ -491,11 +479,6 @@ class LiVi_e(LiVi_bc):
         rad_poly = open(self.poly(frame), 'w')
         bpy.ops.object.select_all(action='DESELECT')
         for o in obs:
-            try:
-                o['merr']
-            except:
-                o['merr'] = 0
-                
             o.select = True
             bpy.ops.export_scene.obj(filepath=self.obj(o.name, frame), check_existing=True, filter_glob="*.obj;*.mtl", use_selection=True, use_animation=False, use_mesh_modifiers=True, use_edges=False, use_normals=o.data.polygons[0].use_smooth, use_uvs=True, use_materials=True, use_triangles=True, use_nurbs=True, use_vertex_groups=True, use_blen_objects=True, group_by_object=False, group_by_material=False, keep_vertex_order=False, global_scale=1.0, axis_forward='Y', axis_up='Z', path_mode='AUTO')
             o.select = False
@@ -503,34 +486,33 @@ class LiVi_e(LiVi_bc):
             objrun = Popen(objcmd, shell = True, stderr = PIPE)
             for line in objrun.stderr:
                 if 'fatal' in str(line):
-                    o['merr'] = 1
+                    o.livi_merr = 1
 
-            if o['merr'] == 0:
+            if o.livi_merr == 0:
                 rad_poly.write("void mesh id \n1 "+self.mesh(o.name, frame)+"\n0\n0\n\n")
     
             else:
                 export_op.report({'INFO'}, o.name+" could not be converted into a Radiance mesh and simpler export routine has been used. No un-applied object modifiers will be exported.")
-                o['merr'] = 0
+                o.livi_merr = 0
                 geomatrix = o.matrix_world
                 for face in o.data.polygons:
                     try:
                         vertices = face.vertices[:]
-                        rad_poly.write("# Polygon \n"+o.data.materials[face.material_index].name.replace(" ", "_") + " polygon " + "poly_"+o.data.name.replace(" ", "_")+"_"+str(face.index) + "\n0\n0\n"+str(3*len(face.vertices))+"\n")
+                        rad_poly.write("# Polygon \n{} polygon poly_{}_{}\n0\n0\n{}\n".format(o.data.materials[face.material_index].name.replace(" ", "_"), o.data.name.replace(" ", "_"), face.index, 3*len(face.vertices)))                   
                         try:
-                            if o.data.shape_keys.key_blocks[0] and o.data.shape_keys.key_blocks[1]:
+                            if o.data.shape_keys and o.data.shape_keys.key_blocks[0] and o.data.shape_keys.key_blocks[1]:
                                 for vertindex in vertices:
                                     sk0 = o.data.shape_keys.key_blocks[0]
                                     sk0co = geomatrix*sk0.data[vertindex].co
                                     sk1 = o.data.shape_keys.key_blocks[1]
                                     sk1co = geomatrix*sk1.data[vertindex].co
-                                    rad_poly.write(" " +str(sk0co[0]+(sk1co[0]-sk0co[0])*sk1.value) +  " " + str(sk0co[1]+(sk1co[1]-sk0co[1])*sk1.value) +" "+ str(sk0co[2]+(sk1co[2]-sk0co[2])*sk1.value) + "\n")
+                                    rad_poly.write(" {} {} {}\n".format(sk0co[0]+(sk1co[0]-sk0co[0])*sk1.value, sk0co[1]+(sk1co[1]-sk0co[1])*sk1.value, sk0co[2]+(sk1co[2]-sk0co[2])*sk1.value))
                         except:
                             for vertindex in vertices:
-                                rad_poly.write(" " +str((geomatrix*o.data.vertices[vertindex].co)[0]) +  " " + str((geomatrix*o.data.vertices[vertindex].co)[1]) +" "+ str((geomatrix*o.data.vertices[vertindex].co)[2]) + "\n")
+                                rad_poly.write(" {0[0]} {0[1]} {0[2]}\n".format(geomatrix*o.data.vertices[vertindex].co))
                         rad_poly.write("\n")
                     except:
                         export_op.report({'ERROR'},"Make sure your object "+o.name+" has an associated material")
-            
         rad_poly.close()
 
     def obmexport(self, frame, obs, ob, export_op):
@@ -538,10 +520,6 @@ class LiVi_e(LiVi_bc):
         rad_poly = open(self.poly(frame), 'w')
         for o in obs:
             if frame == 0:
-                try:
-                    o['merr']
-                except:
-                    o['merr'] = 0
                 o.select = True
                 bpy.ops.export_scene.obj(filepath=self.obj(o.name, frame), check_existing=True, filter_glob="*.obj;*.mtl", use_selection=True, use_animation=False, use_mesh_modifiers=True, use_edges=False, use_normals=o.data.polygons[0].use_smooth, use_uvs=True, use_materials=True, use_triangles=True, use_nurbs=True, use_vertex_groups=True, use_blen_objects=True, group_by_object=False, group_by_material=False, keep_vertex_order=False, global_scale=1.0, axis_forward='Y', axis_up='Z', path_mode='AUTO')
                 o.select = False
@@ -551,12 +529,12 @@ class LiVi_e(LiVi_bc):
         
             for line in objrun.stderr:
                 if 'fatal' in str(line):
-                    o['merr'] = 1
+                    o.livi_merr = 1
        
-            if o['merr'] == 0 and ob == 0:
+            if o.livi_merr == 0 and ob == 0:
                 rad_poly.write("void mesh id \n1 "+self.mesh(o.name, frame)+"\n0\n0\n")
         
-            elif o['merr'] == 1:        
+            elif o.livi_merr == 1:        
                 if frame == 0:
                     for geo in obs:
                         geomatrix = geo.matrix_world
@@ -571,14 +549,13 @@ class LiVi_e(LiVi_bc):
                                             sk0co = geomatrix*sk0.data[vertindex].co
                                             sk1 = geo.data.shape_keys.key_blocks[1]
                                             sk1co = geomatrix*sk1.data[vertindex].co
-                                            rad_poly.write(" " +str(sk0co[0]+(sk1co[0]-sk0co[0])*sk1.value) +  " " + str(sk0co[1]+(sk1co[1]-sk0co[1])*sk1.value) +" "+ str(sk0co[2]+(sk1co[2]-sk0co[2])*sk1.value) + "\n")
+                                            rad_poly.write(" {} {} {}\n".format(sk0co[0]+(sk1co[0]-sk0co[0])*sk1.value, sk0co[1]+(sk1co[1]-sk0co[1])*sk1.value, sk0co[2]+(sk1co[2]-sk0co[2])*sk1.value))
                                 except:
                                     for vertindex in vertices:
-                                        rad_poly.write(" " +str((geomatrix*geo.data.vertices[vertindex].co)[0]) +  " " + str((geomatrix*geo.data.vertices[vertindex].co)[1]) +" "+ str((geomatrix*geo.data.vertices[vertindex].co)[2]) + "\n")
+                                        rad_poly.write(" {0[0]} {0[1]} {0[2]}\n".format(geomatrix*o.data.vertices[vertindex].co))
                                 rad_poly.write("\n")
                             except:
                                 export_op.report({'ERROR'},"Make sure your object "+geo.name+" has an associated material")
-                            
         rad_poly.close()
         
     def radlights(self, frame):
@@ -610,41 +587,35 @@ class LiVi_e(LiVi_bc):
         calcsurffaces = []
         if 0 not in [len(geo.data.materials) for geo in bpy.data.objects if geo.type == 'MESH' and 'lightarray' not in geo.name and geo.hide == False and geo.layers[0] == True ]:
             for o, geo in enumerate(self.scene.objects):
-                
                 csf = []
                 cverts = []
-                cvox = []
-                cvoy = []
-                cvoz = []
                 
-                self.scene.objects.active = geo
                 if geo.type == 'MESH' and 'lightarray' not in geo.name and geo.hide == False and geo.layers[0] == True:
-                    bpy.ops.object.mode_set(mode = 'EDIT')
-                    bpy.ops.mesh.select_all(action='SELECT')
-                    bpy.ops.object.mode_set(mode = 'OBJECT')
-                    mesh = geo.to_mesh(self.scene, True, 'PREVIEW', calc_tessface=False)
-                    mesh.transform(geo.matrix_world)
-
                     if len([mat.name for mat in geo.material_slots if 'calcsurf' in mat.name]) != 0:
-
+                        self.scene.objects.active = geo
+                        bpy.ops.object.mode_set(mode = 'EDIT')
+                        bpy.ops.mesh.select_all(action='SELECT')
+                        bpy.ops.object.mode_set(mode = 'OBJECT')
+                        mesh = geo.to_mesh(self.scene, True, 'PREVIEW', calc_tessface=False)
+                        mesh.transform(geo.matrix_world)
+                        
                         for face in mesh.polygons:
                             if "calcsurf" in str(mesh.materials[face.material_index].name):
+                                geo.livi_calc = 1
                                 vsum = Vector((0, 0, 0))
                                 self.scene.objects.active = geo
                                 geo.select = True
                                 bpy.ops.object.mode_set(mode = 'OBJECT')                        
                                 for vc in geo.data.vertex_colors:
                                     bpy.ops.mesh.vertex_color_remove()
-#                                fnormx, fnormy, fnormz = face.normal[:]
+
                                 if self.scene['cp'] == 0:                            
                                     for v in face.vertices:
                                         vsum = mesh.vertices[v].co + vsum
                                     fc = vsum/len(face.vertices)
                                     rtrace.write('{0[0]} {0[1]} {0[2]} {1[0]} {1[1]} {1[2]} \n'.format(fc, face.normal[:]))
-                                                        
-                                calcsurffaces.append((o, face))
-                                csf.append(face.index)
-                                geo['calc'] = 1
+                                    calcsurffaces.append((o, face))
+                                    csf.append(face.index)
                                 
                                 for vert in face.vertices:
                                     if (mesh.vertices[vert]) not in calcsurfverts:
@@ -653,38 +624,29 @@ class LiVi_e(LiVi_bc):
                                         
                                         if self.scene['cp'] == 1:
                                             rtrace.write('{0[0]} {0[1]} {0[2]} {1[0]} {1[1]} {1[2]} \n'.format(mesh.vertices[vert].co[:], (mesh.vertices[vert].normal*geo.matrix_world.inverted())[:]))
-                                            
-                                        calcsurfverts.append(mesh.vertices[vert])
-                                        cvox.append(vcentx - geo.location[0]) 
-                                        cvoy.append(vcenty - geo.location[1]) 
-                                        cvoz.append(vcentz - geo.location[2])
-                                        cverts.append(vert)
-                                        
-                                geo['cverts'] = cverts
-                                geo['cvox'] = cvox
-                                geo['cvoy'] = cvoy
-                                geo['cvoz'] = cvoz
-                        if geo['calc'] == 1:              
-                            geo['cfaces'] = csf
-                        
-                        if self.scene.livi_export_calc_points == "1":
-                            self.reslen = len(calcsurfverts)
-                        else:
-                            self.reslen = len(calcsurffaces)
+                                            calcsurfverts.append(mesh.vertices[vert])
+                                            cverts.append(vert)
+                                
+                                if self.scene['cp'] == 1:        
+                                    geo['cverts'] = cverts
+                                    self.reslen = len(calcsurfverts)
+
+                                elif self.scene['cp'] == 0:
+                                    geo['cfaces'] = csf
+                                    self.reslen = len(calcsurffaces)
+                        bpy.data.meshes.remove(mesh)
                     else:
-                        geo['calc'] = 0
+                        geo.livi_calc = 0
                         for mat in geo.material_slots:
                             mat.material.use_transparent_shadows = True
 
             rtrace.close()    
-            bpy.data.meshes.remove(mesh)
             self.export = 1
         else:
             self.export = 0
             for geo in self.scene.objects:
-                if geo.type == 'MESH' and geo.name != 'lightarray' and geo.hide == False and geo.layers[0] == True:
-                    if not geo.data.materials:
-                        export_op.report({'ERROR'},"Make sure your object "+geo.name+" has an associated material") 
+                if geo.type == 'MESH' and geo.name != 'lightarray' and geo.hide == False and geo.layers[0] == True and not geo.data.materials:
+                    export_op.report({'ERROR'},"Make sure your object "+geo.name+" has an associated material") 
     
     def fexport(self, frame, export_op):
         try:
@@ -724,10 +686,7 @@ def solarPosition(doy, lst, lat, lon):
     phi = acos((sin(beta) * sin(l) - sin(delta))/(cos(beta) * cos(l)))                                                                         
     #Convert altitude and azimuth from radians to degrees, since the Spatial Analyst's Hillshade function inputs solar angles in degrees
     altitude = radToDeg*beta
-    if ast<=12:
-        azimuth = radToDeg*phi
-    else:
-        azimuth = 360 - radToDeg*phi
+    azimuth = radToDeg*phi if ast<=12 else 360 - radToDeg*phi
     return([altitude, azimuth])         
     
 def negneg(x):

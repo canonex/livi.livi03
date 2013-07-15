@@ -40,12 +40,11 @@ class SCENE_LiVi_Export_UI(bpy.types.Panel):
             col = row.column()
             col.label(text = 'Period Type:')
             row.prop(scene, "livi_export_time_type")
-        
+            
             if scene.livi_export_time_type == "0":
                 row = layout.row()
                 col = row.column()
                 col.label(text = 'Sky type:')
-               
                 row.prop(scene, "livi_export_sky_type")
                 sky_type = int(scene.livi_export_sky_type)
                
@@ -55,15 +54,9 @@ class SCENE_LiVi_Export_UI(bpy.types.Panel):
                     row.prop(scene, "livi_export_longitude")
                     row = layout.row()
                     row.prop(scene, "livi_export_summer_enable")
-                    if scene.livi_export_summer_enable:
-                        row.prop(scene, "livi_export_summer_meridian")
-                    else:
-                        row.prop(scene, "livi_export_standard_meridian")
+                    row.prop(scene, "livi_export_summer_meridian") if scene.livi_export_summer_enable else row.prop(scene, "livi_export_standard_meridian")
                     row = layout.row()
-                    if int(scene.livi_anim) != "1":
-                        row.label(text = 'Time:')
-                    else:
-                        row.label(text = 'Start:')
+                    row.label(text = 'Time:') if int(scene.livi_anim) != "1" else row.label(text = 'Start:')
                     row.prop(scene, "livi_export_start_hour")
                     if scene.livi_export_start_month == "2":
                         row.prop(scene, "livi_export_start_day28")
@@ -75,8 +68,13 @@ class SCENE_LiVi_Export_UI(bpy.types.Panel):
                     
                 elif sky_type == 4:
                     row = layout.row()
-                    row.operator(SCENE_LiVi_HDR_Select.bl_idname, text="Select HDR File")
+                    row.operator(SCENE_LiVi_HDR_Select.bl_idname, text="Select HDR file")
                     row.prop(scene, "livi_export_hdr_name")
+                    
+                elif sky_type == 5: 
+                    row = layout.row()
+                    row.operator(SCENE_LiVi_RAD_Select.bl_idname, text="Select Radiance sky file")
+                    row.prop(scene, "livi_export_rad_name")
             else:
                 row = layout.row()
                 row.operator(SCENE_LiVi_EPW_Select.bl_idname, text="Select EPW File")
@@ -106,8 +104,8 @@ class SCENE_LiVi_Export_UI(bpy.types.Panel):
                 row.prop(scene, "livi_export_end_day30")
             else:
                 row.prop(scene, "livi_export_end_day")
-            row.prop(scene, "livi_export_end_month")    
             
+            row.prop(scene, "livi_export_end_month")    
             row = layout.row()
             row.label(text = 'Interval (Hours)')
             row.prop(scene, "livi_export_interval")
@@ -147,7 +145,32 @@ class SCENE_LiVi_HDR_Select(bpy.types.Operator, io_utils.ImportHelper):
     def invoke(self,context,event):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
-    
+
+class SCENE_LiVi_RAD_Select(bpy.types.Operator, io_utils.ImportHelper):
+    bl_idname = "scene.livi_rad_select"
+    bl_label = "Select radiance sky file"
+    bl_description = "Select the Radiance format sky file"
+    filename = ""
+    filename_ext = ".rad"
+    filter_glob = bpy.props.StringProperty(default="*.rad", options={'HIDDEN'})
+    bl_register = True
+    bl_undo = True
+
+    def draw(self,context):
+        layout = self.layout
+        row = layout.row()
+        row.label(text="Import a Radiance sky with the file browser", icon='WORLD_DATA')
+         
+    def execute(self, context):
+        scene = context.scene
+        scene.livi_export_rad_name = self.filepath
+        return {'FINISHED'}
+
+    def invoke(self,context,event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+        
+        
 class SCENE_LiVi_EPW_Select(bpy.types.Operator, io_utils.ImportHelper):
     bl_idname = "scene.livi_epw_select"
     bl_label = "Select EPW file"
@@ -216,11 +239,7 @@ class SCENE_LiVi_Export(bpy.types.Operator, io_utils.ExportHelper):
         if bpy.data.filepath:
             scene = context.scene
             if scene.livi_export_time_type == "0" or scene.livi_anim == "1":
-                if scene.livi_anim == "1":
-                    scene['skytype'] = int(scene.livi_export_sky_type_period)
-                else:
-                    scene['skytype'] = int(scene.livi_export_sky_type)
-                
+                scene['skytype'] = int(scene.livi_export_sky_type_period) if scene.livi_anim == "1" else int(scene.livi_export_sky_type)
                 if scene.livi_export_start_month == 2:
                     startD = scene.livi_export_start_day28
                 elif scene.livi_export_start_month in (4, 6, 9, 11):
@@ -285,7 +304,7 @@ class SCENE_LiVi_Calc_UI(bpy.types.Panel):
                 if lexport.metric == "4" and lexport.scene.livi_export_time_type == "1":
                     if  scene.livi_export_epw_name.split(".")[-1] in ("hdr"):
                         row = layout.row()
-                        row.operator(SCENE_LiVi_VEC_Select.bl_idname, text="Select VEC File")
+                        row.operator(SCENE_LiVi_VEC_Select.bl_idname, text="Select MTX File")
                         row.prop(scene, "livi_calc_mtx_name")
                     row = layout.row()
                     row.label(text = 'DA Occupancy:')
@@ -336,12 +355,6 @@ class SCENE_LiVi_Calculator(bpy.types.Operator):
     def invoke(self, context, event):
         global lcalc
         scene = context.scene
-        for geo in context.scene.objects:
-            try:
-                if geo['calc']:
-                    pass
-            except:
-                geo['calc'] = 0
         scene['metric'] = lexport.metric
         lcalc = livi_calc.LiVi_c(lexport, self)   
         scene['unit'] = lcalc.unit[int(scene['metric'])]
@@ -477,10 +490,7 @@ class IES_Select(bpy.types.Operator, io_utils.ImportHelper):
          
     def execute(self, context):
         lamp = bpy.context.active_object
-        if " " not in self.filepath:
-            lamp['ies_name'] = self.filepath
-        else:
-            self.report({'ERROR'}, "There is a space either in the IES filename or its directory location. Remove this space and retry opening the file.")
+        lamp['ies_name'] = self.filepath if " " not in self.filepath else self.report({'ERROR'}, "There is a space either in the IES filename or directory location. Rename or move the file.")
         return {'FINISHED'}
 
     def invoke(self,context,event):

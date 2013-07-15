@@ -24,10 +24,6 @@ from . import livi_export
 class LiVi_d(livi_export.LiVi_e):
     def __init__(self):
         self.scene = bpy.context.scene
-        try:
-            self.scene['livi_disp_3d'] = self.scene['livi_disp_3d']
-        except:
-            self.scene['livi_disp_3d'] = 0
         self.clearscened()
         self.rad_display()
         self.rp_display = True
@@ -35,27 +31,18 @@ class LiVi_d(livi_export.LiVi_e):
     def rad_display(self):
         if len(bpy.app.handlers.frame_change_pre) == 0:
             bpy.app.handlers.frame_change_pre.append(livi_export.cyfc1)
-        j = 0 
         o = 0
         self.obcalclist = []
-        cfs = []
         self.obreslist = []
-        imagelist = []
         
         for geo in self.scene.objects:
-            try:
-                if geo['calc'] == 1:
-                    geo.select = True
-                    if geo.mode != 'OBJECT':
-                        bpy.ops.object.mode_set(mode = 'OBJECT')
-                    bpy.ops.object.select_all(action = 'DESELECT')
-                    for face in geo.data.polygons:
-                        if face.index in geo['cfaces']:
-                            cfs.append((o, face))
-                    self.obcalclist.append(geo)
-                    o = o + 1
-            except Exception as e:
-                        print(e)
+            if geo.type == "MESH" and geo.livi_calc == 1:
+                geo.select = True
+                if geo.mode != 'OBJECT':
+                    bpy.ops.object.mode_set(mode = 'OBJECT')
+                bpy.ops.object.select_all(action = 'DESELECT')
+                self.obcalclist.append(geo)
+                o += 1
 
         for frame in range(0, self.scene.frame_end + 1):
             self.scene.frame_set(frame)
@@ -74,36 +61,33 @@ class LiVi_d(livi_export.LiVi_e):
         bpy.ops.object.select_all(action = 'DESELECT')
         self.scene.objects.active = None
         
-        if self.scene['livi_disp_3d'] == 1:
+        if self.scene.livi_disp_3d == 1:
             resvertco = []
             fextrude = []
             for i, geo in enumerate(self.scene.objects):
-                if geo.type == 'MESH':
-                    try:
-                        if geo['calc'] == 1:
-                            self.scene.objects.active = None
-                            bpy.ops.object.select_all(action = 'DESELECT')
-                            self.scene.objects.active = geo
-                            geo.select = True
-                            bpy.ops.object.mode_set(mode = 'EDIT')
-                            bpy.context.tool_settings.mesh_select_mode = [False, False, True]
-                            bpy.ops.mesh.select_all(action = 'DESELECT')
-                            bpy.ops.object.mode_set(mode = 'OBJECT')
-                            
-                            for face in geo.data.polygons:
-                                if face.index in geo['cfaces']:
-                                    face.select = True
-                            bpy.ops.object.mode_set(mode = 'EDIT')  
-                            bpy.ops.mesh.duplicate()
-                            bpy.ops.mesh.separate()
-                            bpy.ops.object.mode_set(mode = 'OBJECT')
-                            self.scene.objects[0].name = geo.name+"res"
-                            self.obreslist.append(self.scene.objects[0])
-                            self.scene.objects[0]['res'] = 1
-                            bpy.ops.object.select_all(action = 'DESELECT')
-                            self.scene.objects.active = None
-                    except Exception as e:
-                        print(e)
+                if geo.type == 'MESH' and geo.livi_calc == 1:
+                    self.scene.objects.active = None
+                    bpy.ops.object.select_all(action = 'DESELECT')
+                    self.scene.objects.active = geo
+                    geo.select = True
+                    bpy.ops.object.mode_set(mode = 'EDIT')
+                    bpy.context.tool_settings.mesh_select_mode = [False, False, True]
+                    bpy.ops.mesh.select_all(action = 'DESELECT')
+                    bpy.ops.object.mode_set(mode = 'OBJECT')
+                    
+                    for cf in geo["cfaces"]:
+                        geo.data.polygons[int(cf)].select = True
+
+                    bpy.ops.object.mode_set(mode = 'EDIT')  
+                    bpy.ops.mesh.duplicate()
+                    bpy.ops.mesh.separate()
+                    bpy.ops.object.mode_set(mode = 'OBJECT')
+                    self.scene.objects[0].name = geo.name+"res"
+                    self.obreslist.append(self.scene.objects[0])
+                    self.scene.objects[0].livi_res = 1
+                    bpy.ops.object.select_all(action = 'DESELECT')
+                    self.scene.objects.active = None
+
        
             for obres in self.obreslist:   
                 self.scene.objects.active = obres
@@ -178,19 +162,12 @@ def respoint_visualiser(self, context, ld):
     fn = context.scene.frame_current
     
     if context.scene.livi_display_sel_only == False:
-        if context.scene.livi_disp_3d == True:
-            obd = ld.obreslist
-        else:
-            obd = ld.obcalclist
+        obd = ld.obreslist if context.scene.livi_disp_3d == True else ld.obcalclist
     else:
         obd = [context.active_object]
     
     for ob in obd:
-        if context.scene.livi_disp_3d == True:
-            faces = [f for f in ob.data.polygons if f.select == True]
-        else:
-            faces = [f for f in ob.data.polygons]
-
+        faces = [f for f in ob.data.polygons if f.select == True] if context.scene.livi_disp_3d == True else [f for f in ob.data.polygons]
         vdone = []
         obm = ob.data
         view_mat = context.space_data.region_3d.perspective_matrix
@@ -214,10 +191,7 @@ def respoint_visualiser(self, context, ld):
             if scene.livi_export_calc_points == "0":
                 vsum = mathutils.Vector((0, 0, 0))
                 for v in f.vertices:
-                    if context.scene.livi_disp_3d == True:
-                        vsum = ob.active_shape_key.data[v].co + vsum
-                    else:
-                        vsum = ob.data.vertices[v].co + vsum
+                    vsum = ob.active_shape_key.data[v].co + vsum if context.scene.livi_disp_3d == True else ob.data.vertices[v].co + vsum
                 fc = vsum/len(f.vertices)
                 if not f.hide and f.select:
                     loop_index = f.loop_indices[0]
@@ -227,10 +201,7 @@ def respoint_visualiser(self, context, ld):
             elif scene.livi_export_calc_points == "1":
                 for loop_index in f.loop_indices:
                     v = obm.loops[loop_index].vertex_index
-                    if context.scene.livi_disp_3d == True:
-                        vpos = ob.active_shape_key.data[v].co
-                    else:
-                        vpos = obm.vertices[v].co
+                    vpos = ob.active_shape_key.data[v].co if context.scene.livi_disp_3d == True else obm.vertices[v].co
                     if v not in vdone:
                         vdone.append(v)
                         if len(set(obm.vertex_colors[fn].data[loop_index].color[:])) > 1:
