@@ -376,7 +376,9 @@ class LiVi_e(LiVi_bc):
         
     def ddsskyexport(self):
         os.chdir(self.newdir)
-        pcombfiles = "ps0.hdr ps1.hdr ps2.hdr ps3.hdr ps4.hdr ps5.hdr ps6.hdr ps7.hdr ps8.hdr ps9.hdr ps10.hdr ps11.hdr ps12.hdr ps13.hdr ps14.hdr ps15.hdr ps16.hdr ps17.hdr ps18.hdr ps19.hdr ps20.hdr ps21.hdr ps22.hdr ps23.hdr ps24.hdr ps25.hdr ps26.hdr ps27.hdr ps28.hdr ps29.hdr ps30.hdr ps31.hdr ps32.hdr ps33.hdr ps34.hdr ps35.hdr ps36.hdr ps37.hdr ps38.hdr ps39.hdr ps40.hdr ps41.hdr ps42.hdr ps43.hdr ps44.hdr ps45.hdr ps46.hdr ps47.hdr ps48.hdr ps49.hdr ps50.hdr ps51.hdr ps52.hdr ps53.hdr ps54.hdr ps55.hdr ps56.hdr ps57.hdr ps58.hdr ps59.hdr ps60.hdr ps61.hdr ps62.hdr ps63.hdr ps64.hdr ps65.hdr ps66.hdr ps67.hdr ps68.hdr ps69.hdr ps70.hdr ps71.hdr ps72.hdr ps73.hdr ps74.hdr ps75.hdr ps76.hdr ps77.hdr ps78.hdr ps79.hdr ps80.hdr ps81.hdr ps82.hdr ps83.hdr ps84.hdr ps85.hdr ps86.hdr ps87.hdr ps88.hdr ps89.hdr ps90.hdr ps91.hdr ps92.hdr ps93.hdr ps94.hdr ps95.hdr ps96.hdr ps97.hdr ps98.hdr ps99.hdr ps100.hdr ps101.hdr ps102.hdr ps103.hdr ps104.hdr ps105.hdr ps106.hdr ps107.hdr ps108.hdr ps109.hdr ps110.hdr ps111.hdr ps112.hdr ps113.hdr ps114.hdr ps115.hdr ps116.hdr ps117.hdr ps118.hdr ps119.hdr ps120.hdr ps121.hdr ps122.hdr ps123.hdr ps124.hdr ps125.hdr ps126.hdr ps127.hdr ps128.hdr ps129.hdr ps130.hdr ps131.hdr ps132.hdr ps133.hdr ps134.hdr ps135.hdr ps136.hdr ps137.hdr ps138.hdr ps139.hdr ps140.hdr ps141.hdr ps142.hdr ps143.hdr ps144.hdr ps145.hdr"
+        pcombfiles = ""
+        for i in range(0, 146):
+            pcombfiles = pcombfiles + "ps{}.hdr ".format(i)
         epwbase = os.path.splitext(os.path.basename(self.scene.livi_export_epw_name))
         if epwbase[1] in (".epw", ".EPW"):
             epw = open(self.scene.livi_export_epw_name, "r")
