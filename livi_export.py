@@ -400,7 +400,7 @@ class LiVi_e(LiVi_bc):
                 vals = [0 for x in range(146)]
             else:
                 self.vecvals = numpy.array([[x%24, (fwd+x)%7] + [0 for p in range(146)] for x in range(0,8760)])
-                vals = numpy.array([0 for x in range(146)])
+                vals = numpy.zeros((146))
             
             mtx = open(self.newdir+"/"+epwbase[0]+".mtx", "r") 
             for fvals in mtx.readlines():
@@ -645,7 +645,7 @@ class LiVi_e(LiVi_bc):
                             mat.material.use_transparent_shadows = True
 
             rtrace.close()    
-            self.export = 1
+            self.export = 1            
         else:
             self.export = 0
             for geo in self.scene.objects:

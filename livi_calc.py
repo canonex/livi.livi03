@@ -136,7 +136,7 @@ class LiVi_c(object):
         res = [[0] * lexport.reslen for frame in range(0, bpy.context.scene.frame_end+1)]
         wd = (7, 5)[int(lexport.scene.livi_calc_da_weekdays)]
         fwd = datetime.datetime(2010, 1, 1).weekday()
-        vecvals = [[x%24, (fwd+x)%7] for x in range(0,8760)] if np == 0 else numpy.array()
+        vecvals = [[x%24, (fwd+x)%7] for x in range(0,8760)] if np == 0 else numpy.array([[x%24, (fwd+x)%7] + [0 for p in range(146)] for x in range(0,8760)])
         if os.path.splitext(os.path.basename(lexport.scene.livi_export_epw_name))[1] in (".hdr", ".HDR"):
             skyrad = open(lexport.filebase+".whitesky", "w")    
             skyrad.write("void glow sky_glow \n0 \n0 \n4 1 1 1 0 \nsky_glow source sky \n0 \n0 \n4 0 0 1 180 \nvoid glow ground_glow \n0 \n0 \n4 1 1 1 0 \nground_glow source ground \n0 \n0 \n4 0 0 -1 180\n\n")
@@ -145,23 +145,38 @@ class LiVi_c(object):
             hour = 0
             mtxlines = mtx.readlines()
             mtx.close() 
-            for fvals in mtxlines[:]:
+            for fvals in mtxlines:
+                linevals = fvals.split(" ")
                 try:
-                    vecvals[hour].append(round(float(fvals.split(" ")[0]) +  float(fvals.split(" ")[1]) + float(fvals.split(" ")[2]), 2))
+                    sumvals = round(float(linevals[0]) +  float(linevals[1]) + float(linevals[2]), 2) 
+                    if sumvals > 0:
+#                        vals[patch] += sumvals
+                        self.vecvals[hour] = sumvals
                     hour += 1
-                    
                 except:
-                    if fvals != "\n" and math.isnan(float(fvals.split(" ")[0])) == True:
-                        vecvals[hour].append(0)
+                    if fvals != "\n":
                         hour += 1 
                     else:
+#                        patch += 1
                         hour = 0
+            
+#            for fvals in mtxlines[:]:
+#                try:
+#                    vecvals[hour].append(round(float(fvals.split(" ")[0]) +  float(fvals.split(" ")[1]) + float(fvals.split(" ")[2]), 2))
+#                    hour += 1
+#                    
+#                except:
+#                    if fvals != "\n":
+#                        vecvals[hour].append(0)
+#                        hour += 1 
+#                    else:
+#                        hour = 0
         else:
             vecvals = lexport.vecvals 
         
         for frame in range(0, bpy.context.scene.frame_end+1):
             hours = 0
-            sensarray = [[] for x in range(0, 146)]
+            sensarray = [[] for x in range(0, 146)] if np == 0 else numpy.zeros((146, lexport.reslen))
             subprocess.call("oconv -w "+lexport.lights(frame)+" "+lexport.filename+".whitesky "+lexport.mat(frame)+" "+lexport.poly(frame)+" > "+lexport.filename+"-"+str(frame)+"ws.oct", shell = True)
             if not os.path.isdir(lexport.newdir+lexport.fold+"s_data"):
                 os.makedirs(lexport.newdir+lexport.fold+"s_data")
@@ -169,18 +184,18 @@ class LiVi_c(object):
             
             for i in range(0, 146):
                 sensfile = open(lexport.newdir+"/s_data/"+str(frame)+"-sensor"+str(i)+".dat", "r")
-                for sens in sensfile.readlines():
-                    sensarray[i].append(sens.strip("\n").split("\t"))
+                for s,sens in enumerate(sensfile.readlines()):
+                    sensarray[i,s] = sens.strip("\n").split("\t")
                 sensfile.close()
             
             for l, readings in enumerate(vecvals):
-                finalillu = []
+                finalillu = [0 for x in range(0, lexport.reslen)] if np == 0 else numpy.zeros((lexport.reslen))
                 for i in range(0, 146):
                     if lexport.scene.livi_calc_dastart_hour <= float(readings[0]) < lexport.scene.livi_calc_daend_hour and float(readings[1]) < wd:
                         for j, sens in enumerate(sensarray[i]):
                             senreading = 179*(0.265*float(sens[0])+0.67*float(sens[1])+0.065*float(sens[2]))
                             if i == 0:
-                                finalillu.append(senreading*readings[i+2])
+                                finalillu[j] = senreading*readings[i+2]
                                 if j == 0:
                                     hours += 1
                             else:
