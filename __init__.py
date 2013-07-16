@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 bl_info = {
-    "name": "Lighting Visualiser (LiVi) Development Version",
+    "name": "Lighting Visualiser (LiVi)",
     "author": "Ryan Southall",
     "version": (0, 3, 0),
     "blender": (2, 6, 7),
@@ -33,7 +33,7 @@ if "bpy" in locals():
     import imp
     imp.reload(livi_ui)
 else:
-    from io_livi_dev import livi_ui
+    from io_livi import livi_ui
 
 import bpy, os, sys, platform, inspect
 from bpy.props import BoolProperty, IntProperty, FloatProperty, EnumProperty, StringProperty
@@ -41,8 +41,8 @@ from bpy.props import BoolProperty, IntProperty, FloatProperty, EnumProperty, St
 addonpath = os.path.dirname(inspect.getfile(inspect.currentframe()))
 
 if sys.platform == 'darwin':
-    if platform.architecture() == "64bit":
-        os.environ["PATH"] = os.environ["PATH"] + ":/usr/local/radiance/bin:{}/osx/64".format(addonpath)
+    if platform.architecture()[0] == "64bit":
+        os.environ["PATH"] = os.environ["PATH"] + ":{}/osx/64".format(addonpath)
     else:
          os.environ["PATH"] = os.environ["PATH"] + ":/usr/local/radiance/bin:{}/osx".format(addonpath)
     os.environ["RAYPATH"] = "/usr/local/radiance/lib:{}/lib".format(addonpath)

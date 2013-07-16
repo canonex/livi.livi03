@@ -225,6 +225,38 @@ class LiVi_c(object):
             for geo in self.scene.objects:
                 bpy.ops.object.select_all(action = 'DESELECT')
                 self.scene.objects.active = None
+                try:
+                    if geo['calc'] == 1:
+                        self.scene.objects.active = geo
+                        geo.select = True
+                        if frame == 0:
+                            while len(geo.data.vertex_colors) > 0:
+                                bpy.ops.mesh.vertex_color_remove()
+                            
+                        bpy.ops.mesh.vertex_color_add()
+                        geo.data.vertex_colors[frame].name = str(frame)
+                        vertexColour = geo.data.vertex_colors[frame]
+                 
+                        for face in geo.data.polygons:
+                            if "calcsurf" in str(geo.data.materials[face.material_index].name):
+                                if self.scene['cp'] == 1:
+                                    for loop_index in face.loop_indices:
+                                        v = geo.data.loops[loop_index].vertex_index
+                                        col_i = [vi for vi, vval in enumerate(geo['cverts']) if v == geo['cverts'][vi]][0]
+                                        lcol_i.append(col_i)
+                                        vertexColour.data[loop_index].color = rgb[col_i+mcol_i]
+                                    
+                                if self.scene['cp'] == 0:
+                                    for loop_index in face.loop_indices:
+                                        vertexColour.data[loop_index].color = rgb[f]
+                                    f += 1
+                           
+                        cno = cno + len(geo['cverts'])
+                        mcol_i = len(tuple(set(lcol_i)))   
+        
+                except Exception as e:
+                    print(e)
+
                 if geo.livi_calc == 1:
                     self.scene.objects.active = geo
                     geo.select = True
