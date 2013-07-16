@@ -88,7 +88,6 @@ class LiVi_d(livi_export.LiVi_e):
                     bpy.ops.object.select_all(action = 'DESELECT')
                     self.scene.objects.active = None
 
-       
             for obres in self.obreslist:   
                 self.scene.objects.active = obres
                 obres.select = True
