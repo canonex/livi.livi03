@@ -392,7 +392,7 @@ class LiVi_e(LiVi_bc):
             if not os.path.isfile(self.newdir+"/"+epwbase[0]+".mtx"):
                 subprocess.call("gendaymtx -r -90 -m 1 {0}.wea > {0}.mtx".format(self.newdir+"/"+epwbase[0]), shell=True) 
 
-            patch = 0
+            patch = 2
             hour = 0
             fwd = datetime.datetime(int(epwyear), 1, 1).weekday()
             if np == 0:
@@ -402,14 +402,35 @@ class LiVi_e(LiVi_bc):
                 self.vecvals = numpy.array([[x%24, (fwd+x)%7] + [0 for p in range(146)] for x in range(0,8760)])
                 vals = numpy.zeros((146))
             
+#            mtx = open(self.newdir+"/"+epwbase[0]+".mtx", "r") 
+#            for fvals in mtx.readlines():
+#                linevals = fvals.split(" ")
+#                try:
+#                    sumvals = round(float(linevals[0]) +  float(linevals[1]) + float(linevals[2]), 2) 
+#                    if sumvals > 0:
+#                        vals[patch] += sumvals
+#                        self.vecvals[hour] = sumvals
+#                    hour += 1
+#                except:
+#                    if fvals != "\n":
+#                        hour += 1 
+#                    else:
+#                        patch += 1
+#                        hour = 0
             mtx = open(self.newdir+"/"+epwbase[0]+".mtx", "r") 
-            for fvals in mtx.readlines():
+            mtxlines = mtx.readlines()
+            mtx.close()   
+            
+            for fvals in mtxlines:
                 linevals = fvals.split(" ")
                 try:
-                    sumvals = round(float(linevals[0]) +  float(linevals[1]) + float(linevals[2]), 2) 
+                    sumvals = round(float(linevals[0]) +  float(linevals[1]) + float(linevals[2]), 4) 
                     if sumvals > 0:
                         vals[patch] += sumvals
-                        self.vecvals[hour] = sumvals
+                        if np == 1:
+                            self.vecvals[hour,patch] = sumvals
+                        else:
+                            self.vecvals[hour][patch] = sumvals
                     hour += 1
                 except:
                     if fvals != "\n":
@@ -417,8 +438,7 @@ class LiVi_e(LiVi_bc):
                     else:
                         patch += 1
                         hour = 0
-            
-            mtx.close()       
+                        
             skyrad = open(self.filename+".whitesky", "w")    
             skyrad.write("void glow sky_glow \n0 \n0 \n4 1 1 1 0 \nsky_glow source sky \n0 \n0 \n4 0 0 1 180 \nvoid glow ground_glow \n0 \n0 \n4 1 1 1 0 \nground_glow source ground \n0 \n0 \n4 0 0 -1 180\n\n")
             skyrad.close()

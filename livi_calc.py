@@ -152,7 +152,6 @@ class LiVi_c(object):
                     sumvals = round(float(linevals[0]) +  float(linevals[1]) + float(linevals[2]), 4) 
                     if sumvals > 0:
                         if np == 1:
-                            numpy.set_printoptions(threshold=numpy.nan)
                             vecvals[hour,patch] = sumvals
                         else:
                             vecvals[hour][patch] = sumvals
@@ -166,7 +165,7 @@ class LiVi_c(object):
             
         else:
             vecvals = lexport.vecvals 
-        print(vecvals[12:15])
+
         for frame in range(0, bpy.context.scene.frame_end+1):
             hours = 0
             sensarray = [[] for x in range(0, 146)] if np == 0 else numpy.zeros([146, lexport.reslen])
