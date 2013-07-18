@@ -75,7 +75,7 @@ class LiVi_c(object):
             if cam != None:
                 cang = cam.data.angle*180/pi
                 vv = cang * lexport.scene.render.resolution_y/lexport.scene.render.resolution_x
-                subprocess.call("rvu -w -o qt -n {0} -vv {1:.3f} -vh {2:.3f} -vd {3[0][2]:.3f} {3[1][2]:.3f} {3[2][2]:.3f} -vp {4[0]:.3f} {4[1]:.3f} {4[2]:.3f} {5} {6}-{7}.oct &".format(lexport.nproc, vv, cang, -1*cam.matrix_world, cam.location, lexport.pparams(lexport.scene.livi_calc_acc), lexport.filebase, lexport.scene.frame_current), shell = True)
+                subprocess.call("rvu -w -n {0} -vv {1:.3f} -vh {2:.3f} -vd {3[0][2]:.3f} {3[1][2]:.3f} {3[2][2]:.3f} -vp {4[0]:.3f} {4[1]:.3f} {4[2]:.3f} {5} {6}-{7}.oct &".format(lexport.nproc, vv, cang, -1*cam.matrix_world, cam.location, lexport.pparams(lexport.scene.livi_calc_acc), lexport.filebase, lexport.scene.frame_current), shell = True)
             else:
                 prev_op.report({'ERROR'}, "There is no camera in the scene. Radiance preview will not work")
         else:
@@ -178,7 +178,11 @@ class LiVi_c(object):
                 sensfile = open(lexport.newdir+"/s_data/"+str(frame)+"-sensor"+str(i)+".dat", "r")
                 for s,sens in enumerate(sensfile.readlines()):
                     sensfloat = [float(x) for x in (sens.split("\t")[0:-1])]
-                    sensarray[i,s] = 179 * (0.265*sensfloat[0] + 0.67*sensfloat[1]+0.065*sensfloat[2])
+                    print(179 * (0.265*sensfloat[0] + 0.67*sensfloat[1]+0.065*sensfloat[2]))
+                    if np == 1:
+                        sensarray[i,s] = 179 * (0.265*sensfloat[0] + 0.67*sensfloat[1]+0.065*sensfloat[2])
+                    elif np == 0:
+                        sensarray[i][s] = 179 * (0.265*sensfloat[0] + 0.67*sensfloat[1]+0.065*sensfloat[2])
                 sensfile.close()
 
             for l, readings in enumerate(vecvals):
@@ -259,7 +263,6 @@ class LiVi_c(object):
                                         vertexColour.data[loop_index].color = rgb[f]
                                     f += 1
                            
-#                        cno = cno + len(geo['cverts'])
                         mcol_i = len(tuple(set(lcol_i)))   
         
                 except Exception as e:

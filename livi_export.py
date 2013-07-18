@@ -390,6 +390,7 @@ class LiVi_e(LiVi_bc):
                     wea.write("{0[1]} {0[2]} {0[3]} {0[14]} {0[15]} \n".format(epwline.split(",")))
                 wea.close()
             if not os.path.isfile(self.newdir+"/"+epwbase[0]+".mtx"):
+                print('genday')
                 subprocess.call("gendaymtx -r -90 -m 1 {0}.wea > {0}.mtx".format(self.newdir+"/"+epwbase[0]), shell=True) 
 
             patch = 2

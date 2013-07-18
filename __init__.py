@@ -42,9 +42,11 @@ addonpath = os.path.dirname(inspect.getfile(inspect.currentframe()))
 
 if sys.platform == 'darwin':
     if platform.architecture()[0] == "64bit":
-        os.environ["PATH"] = os.environ["PATH"] + ":{}/osx/64".format(addonpath)
+        if "{}/osx/64".format(addonpath) not in os.environ["PATH"]:
+            os.environ["PATH"] = os.environ["PATH"] + ":{}/osx/64".format(addonpath)
     else:
-         os.environ["PATH"] = os.environ["PATH"] + ":/usr/local/radiance/bin:{}/osx".format(addonpath)
+        if "{/usr/local/radiance/bin:{}/osx".format(addonpath) not in os.environ["PATH"]:
+            os.environ["PATH"] = os.environ["PATH"] + ":/usr/local/radiance/bin:{}/osx".format(addonpath)
     os.environ["RAYPATH"] = "/usr/local/radiance/lib:{}/lib".format(addonpath)
 
 elif sys.platform == 'win32':
