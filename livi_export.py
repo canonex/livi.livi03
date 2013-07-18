@@ -401,22 +401,7 @@ class LiVi_e(LiVi_bc):
             else:
                 self.vecvals = numpy.array([[x%24, (fwd+x)%7] + [0 for p in range(146)] for x in range(0,8760)])
                 vals = numpy.zeros((146))
-            
-#            mtx = open(self.newdir+"/"+epwbase[0]+".mtx", "r") 
-#            for fvals in mtx.readlines():
-#                linevals = fvals.split(" ")
-#                try:
-#                    sumvals = round(float(linevals[0]) +  float(linevals[1]) + float(linevals[2]), 2) 
-#                    if sumvals > 0:
-#                        vals[patch] += sumvals
-#                        self.vecvals[hour] = sumvals
-#                    hour += 1
-#                except:
-#                    if fvals != "\n":
-#                        hour += 1 
-#                    else:
-#                        patch += 1
-#                        hour = 0
+
             mtx = open(self.newdir+"/"+epwbase[0]+".mtx", "r") 
             mtxlines = mtx.readlines()
             mtx.close()   
@@ -424,9 +409,9 @@ class LiVi_e(LiVi_bc):
             for fvals in mtxlines:
                 linevals = fvals.split(" ")
                 try:
-                    sumvals = round(float(linevals[0]) +  float(linevals[1]) + float(linevals[2]), 4) 
+                    sumvals = float(linevals[0]) +  float(linevals[1]) + float(linevals[2]) 
                     if sumvals > 0:
-                        vals[patch] += sumvals
+                        vals[patch - 2] += sumvals
                         if np == 1:
                             self.vecvals[hour,patch] = sumvals
                         else:
