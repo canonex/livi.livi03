@@ -168,7 +168,7 @@ class LiVi_c(object):
 
         for frame in range(0, bpy.context.scene.frame_end+1):
             hours = 0
-            sensarray = [[] for x in range(0, 146)] if np == 0 else numpy.zeros([146, lexport.reslen])
+            sensarray = [[0 for x in range(lexport.reslen)] for y in range(146)] if np == 0 else numpy.zeros([146, lexport.reslen])
             subprocess.call("oconv -w "+lexport.lights(frame)+" "+lexport.filename+".whitesky "+lexport.mat(frame)+" "+lexport.poly(frame)+" > "+lexport.filename+"-"+str(frame)+"ws.oct", shell = True)
             if not os.path.isdir(lexport.newdir+lexport.fold+"s_data"):
                 os.makedirs(lexport.newdir+lexport.fold+"s_data")
@@ -178,7 +178,6 @@ class LiVi_c(object):
                 sensfile = open(lexport.newdir+"/s_data/"+str(frame)+"-sensor"+str(i)+".dat", "r")
                 for s,sens in enumerate(sensfile.readlines()):
                     sensfloat = [float(x) for x in (sens.split("\t")[0:-1])]
-                    print(179 * (0.265*sensfloat[0] + 0.67*sensfloat[1]+0.065*sensfloat[2]))
                     if np == 1:
                         sensarray[i,s] = 179 * (0.265*sensfloat[0] + 0.67*sensfloat[1]+0.065*sensfloat[2])
                     elif np == 0:
