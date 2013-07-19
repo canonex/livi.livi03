@@ -33,7 +33,7 @@ if "bpy" in locals():
     import imp
     imp.reload(livi_ui)
 else:
-    from io_livi import livi_ui
+    from . import livi_ui
 
 import bpy, os, sys, platform, inspect
 from bpy.props import BoolProperty, IntProperty, FloatProperty, EnumProperty, StringProperty
