@@ -19,7 +19,7 @@
 bl_info = {
     "name": "Lighting Visualiser (LiVi)",
     "author": "Ryan Southall",
-    "version": (0, 3, 0),
+    "version": (0, 3, 1),
     "blender": (2, 6, 8),
     "api":"",
     "location": "3D View > Properties Panel",
