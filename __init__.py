@@ -20,7 +20,7 @@ bl_info = {
     "name": "Lighting Visualiser (LiVi)",
     "author": "Ryan Southall",
     "version": (0, 3, 0),
-    "blender": (2, 6, 7),
+    "blender": (2, 6, 8),
     "api":"",
     "location": "3D View > Properties Panel",
     "description": "Radiance exporter and results visualiser",
@@ -51,18 +51,21 @@ if sys.platform == 'darwin':
 
 elif sys.platform == 'win32':
     if os.path.isdir(r"C:\Program Files (x86)\Radiance"):
-        os.environ["PATH"] = os.environ["PATH"] + r";C:\Program Files (x86)\Radiance\bin;{}\windows".format(addonpath) 
-        os.environ["RAYPATH"] = r"C:\Program Files (x86)\Radiance\lib;{}\lib".format(addonpath)
+        if "{}\windows".format(addonpath) not in os.environ["PATH"]:
+            os.environ["PATH"] = os.environ["PATH"] + r";C:\Program Files (x86)\Radiance\bin;{}\windows".format(addonpath) 
+            os.environ["RAYPATH"] = r"C:\Program Files (x86)\Radiance\lib;{}\lib".format(addonpath)
     elif os.path.isdir(r"C:\Program Files\Radiance"):
-        os.environ["PATH"] = os.environ["PATH"] + r";C:\Program Files\Radiance\bin;{}\windows".format(addonpath)
-        os.environ["RAYPATH"] = "C:\Program Files\Radiance\lib;{}\lib".format(addonpath)
+        if "{}\windows".format(addonpath) not in os.environ["PATH"]:
+            os.environ["PATH"] = os.environ["PATH"] + r";C:\Program Files\Radiance\bin;{}\windows".format(addonpath)
+            os.environ["RAYPATH"] = "C:\Program Files\Radiance\lib;{}\lib".format(addonpath)
     else:
         print("Cannot find a valid Radiance directory. Please check that you have Radiance installed in either C:\Program Files(x86) (64bit windows) \
 or C:\Program Files (32bit windows)")
               
 elif sys.platform == 'linux':
-    os.environ["PATH"] = os.environ["PATH"] + ":/usr/local/radiance/bin:{}/linux".format(addonpath)
-    os.environ["RAYPATH"] = "/usr/local/radiance/lib:{}/lib".format(addonpath)
+    if "{}/linux".format(addonpath) not in os.environ["PATH"]:
+        os.environ["PATH"] = os.environ["PATH"] + ":/usr/local/radiance/bin:{}/linux".format(addonpath)
+        os.environ["RAYPATH"] = "/usr/local/radiance/lib:{}/lib".format(addonpath)
 
 def register():
     bpy.utils.register_module(__name__)

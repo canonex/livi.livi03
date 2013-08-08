@@ -36,11 +36,13 @@ class LiVi_bc(object):
             self.rm = "rm "
             self.cat = "cat "
             self.fold = "/"
+            self.space = " "
         else:
             self.nproc = "1"
             self.rm = "del "
             self.cat = "type "
             self.fold = "\\"
+            self.space = "\ "
         self.filepath = filepath
         self.filename = os.path.splitext(os.path.basename(self.filepath))[0]
         self.filedir = os.path.dirname(self.filepath)
@@ -66,7 +68,7 @@ class LiVi_e(LiVi_bc):
         self.merr = 0
         self.rtrace = self.filebase+".rtrace"
         self.metric = ""
-        
+        print(self.scene.livipath.replace(" ", self.space))
         for a in bpy.app.handlers.frame_change_pre:
             bpy.app.handlers.frame_change_pre.remove(a)
   
@@ -229,7 +231,10 @@ class LiVi_e(LiVi_bc):
             subprocess.call("gensky {} {} {}:{:0>2d}{} -a {} -o {} {} > {}".format(simtime.month, simtime.day, simtime.hour, simtime.minute, self.TZ, self.scene.livi_export_latitude, self.scene.livi_export_longitude, self.skytypeparams, self.sky(frame)), shell = True)
             self.skyexport(open(self.sky(frame), "a"))           
             subprocess.call("oconv {} > {}-{}sky.oct".format(self.sky(frame), self.filebase, frame), shell=True)
-            subprocess.call("cnt 250 500 | rcalc -f {}/io_livi/lib/latlong.cal -e 'XD=500;YD=250;inXD=0.002;inYD=0.004' | rtrace -af pan.af -n {} -x 500 -y 250 -fac {}-{}sky.oct > {}/{}p.hdr".format(self.scene.livipath, self.nproc, self.filebase, frame, self.newdir, frame), shell=True)
+            if sys.platform == 'win32':
+                subprocess.call('cnt 250 500 | rcalc -f "{0}\io_livi\lib\latlong.cal" -e XD=500;YD=250;inXD=0.002;inYD=0.004 | rtrace -af {4}/pan.af -n {1} -x 500 -y 250 -fac {2}-{3}sky.oct > {4}/{3}p.hdr'.format(self.scene.livipath, self.nproc, self.filebase, frame, self.newdir), shell=True)
+            else:
+                subprocess.call("cnt 250 500 | rcalc -f {0}/io_livi/lib/latlong.cal -e 'XD=500;YD=250;inXD=0.002;inYD=0.004' | rtrace -af {4}/pan.af -n {1} -x 500 -y 250 -fac {2}-{3}sky.oct > {4}/{3}p.hdr".format(self.scene.livipath, self.nproc, self.filebase, frame, self.newdir), shell=True)
             subprocess.call("rpict -vta -vp 0 0 0 -vd 1 0 0 -vu 0 0 1 -vh 360 -vv 360 -x 1000 -y 1000 {}-{}sky.oct > {}/{}.hdr".format(self.filebase, frame, self.newdir, frame), shell=True)
                 
     def sunexport(self):
